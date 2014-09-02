@@ -6,6 +6,8 @@ import scala.io.Source
 
 class Board() {
 
+  implicit def intToDigitChar(x: Int): Char = ('0'.toInt + x).toChar
+
   type RowT = Array[Char]
   // Inicialzamos el tablero a ' 's donde ' ' = no resuelto
   val rows: Array[RowT] = Array.fill(9, 9) { '.' }
@@ -19,7 +21,7 @@ class Board() {
       ((arrS.slice(0, 3) :+ hline) ++ (arrS.slice(3, 6) :+ hline) ++ arrS.slice(6, 9)).mkString
     }
     def rowToString(row: RowT) = {
-      val res = for { idx <- 0 until 9 } yield {
+      val res = for { idx <- Board.RANGE } yield {
         row(idx) + (if (idx == 2 || idx == 5) "|" else "")
       }
       res.mkString + "\n"
@@ -30,9 +32,9 @@ class Board() {
     println("readFile")
     val filenes = (for { line <- Source.fromFile(fileName).getLines if !line.startsWith("---") } yield line.replace("|", "")).toIndexedSeq
     assert(filenes.length == 9)
-    for (idx <- 0 until 9) asignRow(filenes(idx), rows(idx))
+    for (idx <- Board.RANGE) asignRow(filenes(idx), rows(idx))
     def asignRow(line: String, row: RowT) = {
-      for { idx <- 0 until 9 } { row(idx) = line(idx) }
+      for { idx <- Board.RANGE } { row(idx) = line(idx) }
     }
   }
   private def rowConstraint(x: Int, value: Char): Boolean = !rows(x).contains(value)
@@ -44,13 +46,24 @@ class Board() {
     val zx = x / 3
     val zy = y / 3
     val cells = for {
-      ix <- 0 until 3
-      iy <- 0 until 3
+      ix <- Board.BOX_RANGE
+      iy <- Board.BOX_RANGE
     } yield { rows(ix + zx * 3)(iy + zy * 3) }
     !cells.contains(value)
   }
   def attempValue(x: Int, y: Int, value: Char): Boolean = {
     rowConstraint(x, value) && colConstraint(y, value) && zoneConstraint(x, y, value)
+  }
+
+  // next Blanck cell
+  private def nextBlank(x: Int, y: Int): (Int, Int) = {
+    def nextXY(x: Int, y: Int): (Int, Int) = {
+      var cxy = x * 9 + y + 1
+      if (cxy < 81) (cxy / 9, cxy % 9) else (-1, -1)
+    }
+    val retXY = nextXY(x, y)
+    if (retXY._1 >= 0 && retXY._2 >= 0 && rows(retXY._1)(retXY._2) != '.') nextBlank(retXY._1, retXY._2)
+    else retXY
   }
 
   private def copy(): Board = {
@@ -61,46 +74,55 @@ class Board() {
   }
 
   def isSolved(): Boolean = {
-    def isSolved(row: RowT): Boolean = !row.contains('.')
-    rows.forall(isSolved(_))
+    rows.forall(!_.contains('.'))
   }
-  private def solveBoard(x: Int, y: Int): Board = {
-    def nextXY(x: Int, y: Int): (Int, Int) = {
-      var cxy = x * 9 + y + 1
-      if (cxy < 81) (cxy / 9, cxy % 9) else (-1, -1)
-    }
+
+  private def internalSolveBoard(x: Int, y: Int): Board = {
+
     if (x >= 0 && y >= 0) {
-      val (nx, ny) = nextXY(x, y)
       var cb = copy
+      val (nx, ny) = nextBlank(x, y)
       rows(x)(y) match {
+        // Blank cell
         case '.' => {
-          def recAttem(ch: Char): Unit = {
-            if (ch <= '9') {
+          // Recursive Attemp
+          def recAttem(ch: Int): Unit = {
+            if (ch <= 9) {
               if (cb.attempValue(x, y, ch)) {
                 cb.rows(x)(y) = ch
-                val solvedB = cb.solveBoard(nx, ny)
-                if (solvedB.isSolved) cb = solvedB else recAttem((ch + 1).toChar)
-              } else recAttem((ch + 1).toChar)
+                // Solve next 
+                val solvedB = cb.internalSolveBoard(nx, ny)
+                if (solvedB.isSolved) cb = solvedB else recAttem(ch + 1)
+              } else recAttem(ch + 1)
             }
           }
-          recAttem('1')
+          recAttem(1)
         }
-        case _ => cb = solveBoard(nx, ny)
+        // Clue => solve next
+        case _ => cb = internalSolveBoard(nx, ny)
       }
       cb
     } else this
 
   }
-  def solveBoard(): Board = {
-    solveBoard(0, 0)
+  def solveBoard(mode: Symbol): Option[Board] = {
+    mode match {
+      case 'BadTracking => {
+        val solb = internalSolveBoard(0, 0)
+        if (solb.isSolved) Some(solb) else None
+      }
+      case _ => None
+    }
   }
 }
 
 object Board {
+  private val RANGE = 0 until 9
+  private val BOX_RANGE = 0 until 3
+  val BADTRACKING = 'BadTracking
   def mainBoard(fileName: String) = {
     val retB = new Board
     retB.readFile(fileName)
     retB
   }
-
 }
