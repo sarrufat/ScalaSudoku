@@ -1,5 +1,5 @@
 <projectDescription>
-  <name>sudoku</name>
+  <name>scalasudoku</name>
   <buildSpec>
     <buildCommand>
       <name>org.scala-ide.sdt.core.scalabuilder</name>
