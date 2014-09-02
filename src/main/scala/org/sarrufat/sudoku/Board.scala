@@ -51,7 +51,7 @@ class Board() {
     } yield { rows(ix + zx * 3)(iy + zy * 3) }
     !cells.contains(value)
   }
-  def attempValue(x: Int, y: Int, value: Char): Boolean = {
+  private def attempValue(x: Int, y: Int, value: Char): Boolean = {
     rowConstraint(x, value) && colConstraint(y, value) && zoneConstraint(x, y, value)
   }
 
