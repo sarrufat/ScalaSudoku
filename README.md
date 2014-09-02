@@ -1,0 +1,4 @@
+ScalaSudoku
+===========
+
+Scala Sudoku Solver
