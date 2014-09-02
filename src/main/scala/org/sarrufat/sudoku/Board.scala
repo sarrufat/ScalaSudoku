@@ -29,7 +29,6 @@ class Board() {
     rowsToString
   }
   private def readFile(fileName: String) {
-    println("readFile")
     val filenes = (for { line <- Source.fromFile(fileName).getLines if !line.startsWith("---") } yield line.replace("|", "")).toIndexedSeq
     assert(filenes.length == 9)
     for (idx <- Board.RANGE) asignRow(filenes(idx), rows(idx))

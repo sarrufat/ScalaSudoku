@@ -9,11 +9,23 @@ trait Output {
 
 @RunWith(classOf[JUnitRunner])
 class TestLS extends FlatSpec with Output {
-  val board = Board.mainBoard("Sudoku3.txt")
+  val board1 = Board.mainBoard("Sudoku1.txt")
+  val board2 = Board.mainBoard("Sudoku2.txt")
+  val board3 = Board.mainBoard("Sudoku3.txt")
 
-  "Mainboard" should " be solved" in {
+  "Board1" should " be solved" in {
 
-    assert(board.solveBoard(Board.BADTRACKING) != None)
+    assert(board1.solveBoard(Board.BADTRACKING) != None)
+
+  }
+  "Board2" should " be solved" in {
+
+    assert(board2.solveBoard(Board.BADTRACKING) != None)
+
+  }
+  "Board3" should " be solved" in {
+
+    assert(board3.solveBoard(Board.BADTRACKING) != None)
 
   }
 }
