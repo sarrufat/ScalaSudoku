@@ -11,6 +11,21 @@ class Board() {
   type RowT = Array[Char]
   // Inicialzamos el tablero a ' 's donde ' ' = no resuelto
   val rows: Array[RowT] = Array.fill(9, 9) { '.' }
+  // Vertical region
+  def vRegion(x: Int): Array[Char] = for { row ← rows } yield { row(x) }
+  // Horizontal region
+  def hRegion(y: Int): Array[Char] = rows(y)
+  // Zone region 
+  def zRegion(x: Int, y: Int): Array[Char] = {
+    val zx = x / 3
+    val zy = y / 3
+    val cells = for {
+      ix ← Board.BOX_RANGE
+      iy ← Board.BOX_RANGE
+    } yield { rows(iy + zy * 3)(ix + zx * 3) }
+    cells.toArray
+  }
+  def charAt(x: Int, y: Int) = rows(y)(x)
 
   override def toString() = {
     def rowsToString = {
@@ -36,20 +51,9 @@ class Board() {
       for { idx <- Board.RANGE } { row(idx) = line(idx) }
     }
   }
-  private def rowConstraint(x: Int, value: Char): Boolean = !rows(x).contains(value)
-  private def colConstraint(y: Int, value: Char): Boolean = {
-    val colV = for { row <- rows } yield { row(y) }
-    !colV.contains(value)
-  }
-  private def zoneConstraint(x: Int, y: Int, value: Char): Boolean = {
-    val zx = x / 3
-    val zy = y / 3
-    val cells = for {
-      ix <- Board.BOX_RANGE
-      iy <- Board.BOX_RANGE
-    } yield { rows(ix + zx * 3)(iy + zy * 3) }
-    !cells.contains(value)
-  }
+  private def rowConstraint(x: Int, value: Char): Boolean = !vRegion(x).contains(value)
+  private def colConstraint(y: Int, value: Char): Boolean = !hRegion(y).contains(value)
+  private def zoneConstraint(x: Int, y: Int, value: Char): Boolean = !zRegion(x, y).contains(value);
   private def attempValue(x: Int, y: Int, value: Char): Boolean = {
     rowConstraint(x, value) && colConstraint(y, value) && zoneConstraint(x, y, value)
   }
@@ -57,11 +61,11 @@ class Board() {
   // next Blanck cell
   private def nextBlank(x: Int, y: Int): (Int, Int) = {
     def nextXY(x: Int, y: Int): (Int, Int) = {
-      var cxy = x * 9 + y + 1
-      if (cxy < 81) (cxy / 9, cxy % 9) else (-1, -1)
+      var cxy = x + y * 9 + 1
+      if (cxy < 81) (cxy % 9, cxy / 9) else (-1, -1)
     }
     val retXY = nextXY(x, y)
-    if (retXY._1 >= 0 && retXY._2 >= 0 && rows(retXY._1)(retXY._2) != '.') nextBlank(retXY._1, retXY._2)
+    if (retXY._1 >= 0 && retXY._2 >= 0 && charAt(retXY._1, retXY._2) != '.') nextBlank(retXY._1, retXY._2)
     else retXY
   }
 
@@ -81,14 +85,14 @@ class Board() {
     if (x >= 0 && y >= 0) {
       var cb = copy
       val (nx, ny) = nextBlank(x, y)
-      rows(x)(y) match {
+      charAt(x, y) match {
         // Blank cell
         case '.' => {
           // Recursive Attemp
           def recAttem(ch: Int): Unit = {
             if (ch <= 9) {
               if (cb.attempValue(x, y, ch)) {
-                cb.rows(x)(y) = ch
+                cb.rows(y)(x) = ch
                 // Solve next 
                 val solvedB = cb.internalSolveBoard(nx, ny)
                 if (solvedB.isSolved) cb = solvedB else recAttem(ch + 1)
