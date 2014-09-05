@@ -2,6 +2,7 @@ import org.junit.runner.RunWith
 import org.sarrufat.sudoku.Board
 import org.scalatest.FlatSpec
 import org.scalatest.junit.JUnitRunner
+import com.sun.xml.internal.bind.v2.schemagen.xmlschema.List
 
 trait Output {
   def print(s: String) = Console.println(s)
@@ -20,6 +21,10 @@ class TestLS extends FlatSpec with Output {
     assert(board1.vRegion(2).contains('1') == false)
     assert(board1.hRegion(0).contains('1') == false)
     assert(board1.zRegion(2, 0).contains('1') == false)
+    print(board2 toString)
+    board2.heuristicSolver
+    print(board2 toString)
+    print(board2.findNakedSingles.toString)
   }
 
   "Board1" should " be solved" in {

@@ -2,6 +2,8 @@ package org.sarrufat.sudoku
 
 import scala.annotation.elidable
 import scala.annotation.elidable.ASSERTION
+import scala.collection.immutable.IndexedSeq
+import scala.collection.immutable.Map
 import scala.io.Source
 
 class Board() {
@@ -25,6 +27,7 @@ class Board() {
     } yield { rows(iy + zy * 3)(ix + zx * 3) }
     cells.toArray
   }
+
   def charAt(x: Int, y: Int) = rows(y)(x)
 
   override def toString() = {
@@ -108,10 +111,105 @@ class Board() {
     } else this
 
   }
+  /* 
+  * Heuristics algorithms
+  */
+  def getCandidatesAt(x: Int, y: Int) = {
+    val allSet = { for { ch <- ('1' to '9') } yield { ch } }.toSet
+    val imposibleSet = (vRegion(x) ++ hRegion(y) ++ zRegion(x, y)).toSet
+    allSet diff imposibleSet
+  }
+  // Find clues
+  def getCluesCoord() = {
+    for {
+      x <- Board.RANGE
+      y <- Board.RANGE
+      if (charAt(x, y) == '.')
+    } yield {
+      (x, y)
+    }
+  }
+  // Fin naked singles
+  def findNakedSingles() = {
+    for {
+      co <- getCluesCoord; cantidates = (getCandidatesAt(co._1, co._2))
+      if (cantidates.size == 1)
+    } yield {
+      (co, cantidates.head)
+    }
+  }
+  // Find hidden singles
+  def findHiddenSingles() = {
+    def findUniquesInMap(map: Map[Int, IndexedSeq[((Int, Int), Set[Char])]]) = {
+      val result = for {
+        entry <- map
+      } yield {
+        val allCandiChars = (for { es <- entry._2 } yield { es._2 }).flatten.groupBy(x => x)
+        (for { charOcur <- allCandiChars if (charOcur._2.size == 1) } yield {
+          (entry._2.find(tpl => tpl._2.find(ch => ch == charOcur._1) != None).get._1, charOcur._1)
+        }).toList
+      }
+      result.toList.flatten
+    }
+    val allCanditates = getAllCandidates
+    val xCandidates = allCanditates.groupBy(_._1._1)
+    val yCandidates = allCanditates.groupBy(_._1._2)
+    val zCandidates = allCanditates.groupBy(z => Board.zRegionNum(z._1._1, z._1._2))
+    val ret = (findUniquesInMap(xCandidates) ::: findUniquesInMap(yCandidates) ::: findUniquesInMap(zCandidates)).toIndexedSeq
+    println(this + "\nfindHiddenSingles = " + findUniquesInMap(xCandidates) + "\n")
+    ret
+  }
+  private def getAllCandidates() = {
+    for {
+      co <- getCluesCoord; cantidates = (getCandidatesAt(co._1, co._2))
+      if (cantidates.nonEmpty)
+    } yield {
+      (co, cantidates)
+    }
+  }
+  // Find unique posible: If eight of the nine elements in any row, column or block
+  def uniqueMissing() = {
+    val allChars = Board.allCharSet
+    def uniqueMiss(f: (Int) => Array[Char]) = {
+      (for {
+        co <- getCluesCoord
+        if (f(co._1).count(_ == '.') == 1)
+      } yield {
+        (co, allChars.diff(f(co._1).toSet).head)
+      }).toList
+    }
+    val zUniqs = (for {
+      co <- getCluesCoord
+      if (zRegion(co._1, co._2).count(_ == '.') == 1)
+    } yield {
+      (co, allChars.diff(zRegion(co._1, co._2).toSet).head)
+    }).toList
+    (uniqueMiss(vRegion) ::: uniqueMiss(hRegion) ::: zUniqs).toIndexedSeq
+  }
+  def heuristicSolver(): Board = {
+    def genericProcess(finder: () => IndexedSeq[((Int, Int), Char)]) = {
+      val uniques = finder()
+      for (un <- uniques) { rows(un._1._2)(un._1._1) = un._2 }
+      uniques
+    }
+    var end = false
+    while (!end) {
+      end = true
+      while (!genericProcess(findNakedSingles).isEmpty) { end = false }
+      while (!genericProcess(findHiddenSingles).isEmpty) { end = false }
+      println("\nuniqueMissing = " + uniqueMissing)
+      while (!genericProcess(uniqueMissing).isEmpty) { end = false }
+    }
+    this
+  }
   def solveBoard(mode: Symbol): Option[Board] = {
     mode match {
       case 'BadTracking => {
         val solb = internalSolveBoard(0, 0)
+        if (solb.isSolved) Some(solb) else None
+      }
+      case 'Heuristic => {
+        val solb = heuristicSolver
         if (solb.isSolved) Some(solb) else None
       }
       case _ => None
@@ -122,10 +220,12 @@ class Board() {
 object Board {
   private val RANGE = 0 until 9
   private val BOX_RANGE = 0 until 3
+  private def allCharSet = { for { ch <- ('1' to '9') } yield { ch } }.toSet
   val BADTRACKING = 'BadTracking
   def mainBoard(fileName: String) = {
     val retB = new Board
     retB.readFile(fileName)
     retB
   }
+  def zRegionNum(x: Int, y: Int) = x / 3 + y / 3 * 3
 }
